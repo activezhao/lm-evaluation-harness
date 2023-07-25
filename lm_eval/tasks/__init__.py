@@ -4,6 +4,7 @@ from typing import List, Union
 import sacrebleu
 import lm_eval.base
 
+from . import babi
 from . import superglue
 from . import glue
 from . import arc
@@ -52,6 +53,19 @@ from . import gsm8k
 from . import storycloze
 from . import humaneval
 from . import humaneval_infilling
+from . import toxigen
+from . import crowspairs
+from . import json
+from . import xcopa
+from . import bigbench
+from . import xstorycloze
+from . import xwinograd
+from . import pawsx
+from . import xnli
+from . import mgsm
+from . import scrolls
+from . import ceval
+from . import csatqa
 
 ########################################
 # Translation tasks
@@ -84,6 +98,7 @@ all_translation_benchmarks = {
 
 
 TASK_REGISTRY = {
+    "babi": babi.Babi,
     # GLUE
     "cola": glue.CoLA,
     "mnli": glue.MNLI,
@@ -106,8 +121,10 @@ TASK_REGISTRY = {
     # Order by benchmark/genre?
     "coqa": coqa.CoQA,
     "drop": drop.DROP,
-    "lambada": lambada.LAMBADA,
-    "lambada_cloze": lambada_cloze.LAMBADA_cloze,
+    "lambada_openai": lambada.LambadaOpenAI,
+    "lambada_standard": lambada.LambadaStandard,
+    "lambada_openai_cloze": lambada_cloze.LambadaOpenAICloze,
+    "lambada_standard_cloze": lambada_cloze.LambadaStandardCloze,
     # multilingual lambada
     **lambada_multilingual.construct_tasks(),
     "wikitext": wikitext.WikiText,
@@ -285,18 +302,90 @@ TASK_REGISTRY = {
     "human_eval": humaneval.HumanEval,
     "human_eval_infilling": humaneval_infilling.HumanEvalInfilling,
     "prompted_infilling": humaneval_infilling.PromptedInfilling,
+    "toxigen": toxigen.ToxiGen,
+    "crows_pairs_english": crowspairs.CrowsPairsEnglish,
+    "crows_pairs_english_race_color": crowspairs.CrowsPairsEnglishRaceColor,
+    "crows_pairs_english_socioeconomic": crowspairs.CrowsPairsEnglishSocioeconomic,
+    "crows_pairs_english_gender": crowspairs.CrowsPairsEnglishGender,
+    "crows_pairs_english_age": crowspairs.CrowsPairsEnglishAge,
+    "crows_pairs_english_religion": crowspairs.CrowsPairsEnglishReligion,
+    "crows_pairs_english_disability": crowspairs.CrowsPairsEnglishDisability,
+    "crows_pairs_english_sexual_orientation": crowspairs.CrowsPairsEnglishSexualOrientation,
+    "crows_pairs_english_nationality": crowspairs.CrowsPairsEnglishNationality,
+    "crows_pairs_english_physical_appearance": crowspairs.CrowsPairsEnglishPhysicalAppearance,
+    "crows_pairs_english_autre": crowspairs.CrowsPairsEnglishAutre,
+    "crows_pairs_french": crowspairs.CrowsPairsFrench,
+    "crows_pairs_french_race_color": crowspairs.CrowsPairsFrenchRaceColor,
+    "crows_pairs_french_socioeconomic": crowspairs.CrowsPairsFrenchSocioeconomic,
+    "crows_pairs_french_gender": crowspairs.CrowsPairsFrenchGender,
+    "crows_pairs_french_age": crowspairs.CrowsPairsFrenchAge,
+    "crows_pairs_french_religion": crowspairs.CrowsPairsFrenchReligion,
+    "crows_pairs_french_disability": crowspairs.CrowsPairsFrenchDisability,
+    "crows_pairs_french_sexual_orientation": crowspairs.CrowsPairsFrenchSexualOrientation,
+    "crows_pairs_french_nationality": crowspairs.CrowsPairsFrenchNationality,
+    "crows_pairs_french_physical_appearance": crowspairs.CrowsPairsFrenchPhysicalAppearance,
+    "crows_pairs_french_autre": crowspairs.CrowsPairsFrenchAutre,
+    "csatqa_wr": csatqa.WR,
+    "csatqa_gr": csatqa.GR,
+    "csatqa_rcs": csatqa.RCS,
+    "csatqa_rcss": csatqa.RCSS,
+    "csatqa_rch": csatqa.RCH,
+    "csatqa_li": csatqa.LI,
+    # Requires manual download
     # Requires manual download of data.
     # "storycloze_2016": storycloze.StoryCloze2016,
     # "storycloze_2018": storycloze.StoryCloze2018,
     # "sat": sat.SATAnalogies,
+    **xcopa.construct_tasks(),
+    **bigbench.create_all_tasks(),
+    **xstorycloze.create_all_tasks(),
+    **xwinograd.create_all_tasks(),
+    **pawsx.construct_tasks(),
+    **xnli.construct_tasks(),
+    **mgsm.construct_tasks(),
+    **scrolls.construct_tasks(),
+    **ceval.create_all_tasks(),
 }
 
 
 ALL_TASKS = sorted(list(TASK_REGISTRY))
 
+_EXAMPLE_JSON_PATH = "split:key:/absolute/path/to/data.json"
+
+
+def add_json_task(task_name):
+    """Add a JSON perplexity task if the given task name matches the
+    JSON task specification.
+
+    See `json.JsonPerplexity`.
+    """
+    if not task_name.startswith("json"):
+        return
+
+    def create_json_task():
+        splits = task_name.split("=", 1)
+        if len(splits) != 2 or not splits[1]:
+            raise ValueError(
+                "json tasks need a path argument pointing to the local "
+                "dataset, specified like this: json="
+                + _EXAMPLE_JSON_PATH
+                + ' (if there are no splits, use "train")'
+            )
+
+        json_path = splits[1]
+        if json_path == _EXAMPLE_JSON_PATH:
+            raise ValueError(
+                "please do not copy the example path directly, but substitute "
+                "it with a path to your local dataset"
+            )
+        return lambda: json.JsonPerplexity(json_path)
+
+    TASK_REGISTRY[task_name] = create_json_task()
+
 
 def get_task(task_name):
     try:
+        add_json_task(task_name)
         return TASK_REGISTRY[task_name]
     except KeyError:
         print("Available tasks:")

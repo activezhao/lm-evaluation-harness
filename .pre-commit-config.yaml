@@ -24,7 +24,7 @@ repos:
         args: [--remove]
       - id: mixed-line-ending
         args: [--fix=lf]
-  - repo: https://gitlab.com/pycqa/flake8
+  - repo: https://github.com/pycqa/flake8
     rev: 3.7.9
     hooks:
       - id: flake8
@@ -32,7 +32,7 @@ repos:
     rev: 22.3.0
     hooks:
       - id: black
-        language_version: python3.8
+        language_version: python3.9
   - repo: https://github.com/codespell-project/codespell
     rev: v2.1.0
     hooks:
