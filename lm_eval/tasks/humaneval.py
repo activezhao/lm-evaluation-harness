@@ -64,7 +64,7 @@ class HumanEval(Task):
             language description, as well as the few shot examples, and the question
             part of the document for `doc`.
         """
-        completion = [rf.greedy_until(ctx, ["\n\n"]) for i in range(1)]
+        completion = [rf.greedy_until(ctx, {"until": ["\n\n"]}) for i in range(1)]
         return completion
 
     def _is_correct(self, completion, doc):

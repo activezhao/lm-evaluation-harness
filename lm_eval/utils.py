@@ -136,6 +136,7 @@ class Reorderer:
         res = [None] * self.size
         cov = [False] * self.size
 
+        print(f"get_original self.arr: {self.arr}")
         for (inds, _), v in zip(self.arr, newarr):
             for ind in inds:
                 res[ind] = v

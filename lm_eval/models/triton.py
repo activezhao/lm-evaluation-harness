@@ -83,11 +83,17 @@ def triton_completion(**kwargs):
             continue
 
         val = batched_request[key]
+        # print(f"before，key: {key}, val: {val}")
+        # 修改输入形状
+        if key == 'input_ids':
+            val = np.squeeze(val, axis=1)
         val = np.array(val, dtype=dtype)
+        # print(f" after，key: {key}, val: {val}")
         batched_request[key] = val
-
+    # print(f"batched_request: {batched_request}")
     payload = [prepare_tensor(httpclient, key, batched_request[key])
             for key in batched_request.keys()]
+    # print(f"payload: {payload}")
     backoff_time = 3
     while True:
         try:
@@ -135,6 +141,10 @@ class TritonLM(BaseLM):
     def device(self):
         return 'cpu'
 
+    @property
+    def engine(self):
+        return 'fastertransformer'
+
     def tok_encode(self, string: str):
         return self.tokenizer.encode(string, add_special_tokens=False)
 
@@ -166,18 +176,35 @@ class TritonLM(BaseLM):
         return out_tensor
 
     def _model_generate(self, context, max_length, eos_token_id):
+        print(f"Context shape: {context.shape}")  # Make sure context has shape [1, 47]
+        print(f"_model_generate Context: {context}")  # Make sure context has shape [1, 47]
+        # if context[0][0].item() != 1:
+        #     context = torch.cat([torch.tensor([[1]], dtype=context.dtype), context], dim=1)
+        # else:
+        #     context = context.clone()
         requests = [{
             "input_ids": context,
-            "input_lengths": [len(context)],
+            "input_lengths": [context.size()[1]],
             "request_output_len": [max_length],
-            "stop_words_list": [eos_token_id],
-            "is_return_log_probs": [False],
+            "is_return_log_probs": [True],
+            "start_id": [1],
         }]
 
-        response = triton_completion(
+        result = triton_completion(
             client=self.client,
             model_name=self.engine,
             requests=requests,
         )
-
-        return response['output_ids']
+        output0 = result.as_numpy("output_ids")
+        output1 = result.as_numpy("sequence_length")
+        # print(f"output_ids: {output0}")
+        print(f"sequence_length: {output1}")
+        result_text = []
+        for j in range(1):
+            result_len = (output0[0][j] !=0).sum()
+            result_tokens = output0[0][j][:result_len]
+            text = self.tokenizer.decode(result_tokens.tolist())
+            print("===================== result ======================\n")
+            print(text)
+            result_text.append(text)
+        return output0
